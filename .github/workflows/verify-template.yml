@@ -1,0 +1,245 @@
+name: Verify Template
+
+run-name: 🧪 [verify] by @${{ github.actor }} • ${{ github.sha }}
+
+# 这个工作流操作的是「模板仓库自己」，不是生成出来的仓库
+#
+# 其余工作流（如果有）带 .yml.tpl 后缀，因为它们是给生成出来的服务用的，
+# 里面的占位符要等渲染才合法。这一个没有任何占位符，由模板仓库自己执行，
+# 因此不加后缀；同时它被 kopy.yaml 的 ignore 排除，不会被复制进生成出来的仓库。
+#
+# [EN] This workflow acts on the template repository itself. Other workflows carry a .yml.tpl
+# suffix because they target generated services, where the placeholders are only valid after
+# rendering; this one has none, runs here, and is excluded by kopy.yaml's ignore list so
+# generated repositories do not inherit it.
+
+# ============================================================================
+# 它拦的是什么
+# ============================================================================
+# 模板最容易坏在「某个变量组合下才暴露」的地方，而那些问题都不报错：
+#
+#   kopy 的 ignore 规则在重构目录后失配 → 本该不生成的文件照样生成，
+#     引用了不存在的类型，只有关掉对应开关才编译失败
+#   某个导入只在一个分支用到却无条件写着 → 另一个分支下「imported and not used」
+#   某个 resources 变量没在 kopy.yaml 里定义 → 渲染出 <no value>
+#
+# 所以这里按变量组合跑矩阵，每种组合都完整走一遍
+# 渲染 → init.sh（解析协议依赖 + tidy + build + test）→ vet。
+# 只渲染不编译拦不住上面任何一条。
+#
+# [EN] A template breaks most easily in a place only one variable combination reveals, and none
+# of those failures raise an error: an ignore rule that stops matching after a directory
+# refactor still emits files that reference types which do not exist, and only the other toggle
+# setting fails to compile; an import used in one branch but written unconditionally becomes
+# "imported and not used" in the other; a resources variable missing from kopy.yaml renders as
+# <no value>. The matrix therefore runs every combination all the way through rendering,
+# init.sh and vet, because rendering alone catches none of it.
+
+on:
+  push:
+    branches: [master]
+    paths-ignore:
+      - '**.md'
+      - 'readme*.tpl'
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: verify-template-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: 🧪 Render & Build (${{ matrix.label }})
+    runs-on: ubuntu-latest
+    strategy:
+      # fail-fast: false —— 一个组合失败时别掐掉其它组合
+      #
+      # 模板出问题往往不只影响一个组合。掐掉之后只能看到最先失败的那个，
+      # 修完再推一次又只看到下一个，一次只能前进一步。
+      #
+      # [EN] One failing combination must not cancel the others: a template problem rarely
+      # affects just one, and cancelling shows only the first, so each fix reveals the next and
+      # progress is one step per push.
+      fail-fast: false
+      matrix:
+        include:
+          - label: "租户侧网关"
+            vars: "--var GatewayDomain=TENANT"
+          - label: "运维侧网关"
+            vars: "--var GatewayDomain=OPS"
+
+    steps:
+      - name: ⬇️ Checkout Template
+        uses: actions/checkout@v6
+
+      - name: 🐹 Setup Go
+        uses: actions/setup-go@v6
+        with:
+          # 不能用 go-version-file: go.mod —— 模板的 go.mod 里是占位符不是版本号。
+          # 与 kopy.yaml 里 GoVersion 的默认值保持一致，改那个默认值时同步这里。
+          # [EN] go-version-file cannot be used, because the template's go.mod holds a
+          # placeholder rather than a version. Keep this in step with the GoVersion default
+          go-version: '1.25'
+
+      - name: 🔧 Install kopy
+        run: go install github.com/kamalyes/kopy@latest
+
+      - name: 🎨 Render Template
+        run: |
+          set -euo pipefail
+          kopy new . -o /tmp/rendered -y --hooks never ${{ matrix.vars }}
+
+      - name: 🔍 Check For Unrendered Placeholders
+        run: |
+          set -euo pipefail
+          # <no value> 是 kopy 对「引用了不存在的变量」的渲染结果，它不报错。
+          # 不查这一步的话，这种错误会一路带到生成出来的项目里，
+          # 而且多数情况下照样能编译（它只是个字符串），直到运行时才露出来。
+          #
+          # [EN] <no value> is what kopy renders for a variable that does not exist, and it
+          # raises no error. Unchecked, it travels into the generated project and usually still
+          # compiles, since it is just a string, and only surfaces at runtime.
+          if grep -rIl --exclude-dir=.git '<no value>' /tmp/rendered 2>/dev/null | head -5 | grep -q .; then
+            echo "::error::渲染结果里有 <no value>，说明引用了 kopy.yaml 里没定义的变量 | unresolved variable"
+            grep -rIn --exclude-dir=.git '<no value>' /tmp/rendered | head -20
+            exit 1
+          fi
+          # 分隔符残留：说明某处的占位符语法写错了，kopy 没认出来
+          # [EN] A leftover delimiter means a placeholder's syntax is wrong and kopy did not see it
+          if grep -rIl --exclude-dir=.git -e '<%' /tmp/rendered 2>/dev/null | head -5 | grep -q .; then
+            echo "::error::渲染结果里有未处理的 <% 分隔符 | unrendered delimiter"
+            grep -rIn --exclude-dir=.git -e '<%' /tmp/rendered | head -20
+            exit 1
+          fi
+          echo "✅ 没有未渲染的占位符"
+
+      - name: 🚀 Run init.sh
+        working-directory: /tmp/rendered
+        # 直接跑模板自带的 init.sh，而不是在这里重写一遍 go get + build。
+        # 这样 init.sh 本身也被测到了——它是用户生成项目后执行的第一条命令，
+        # 它坏了的话用户的第一印象就是「这个模板跑不起来」。
+        #
+        # [EN] Runs the template's own init.sh rather than re-implementing go get and build here,
+        # which also tests init.sh itself: it is the first command a user runs after generating,
+        # and if it is broken their first impression is that the template does not work.
+        run: bash scripts/init.sh
+
+      - name: 🔎 go vet
+        working-directory: /tmp/rendered
+        run: go vet ./...
+
+  publish:
+    name: 📦 Publish Build Branch
+    needs: verify
+    # 只在 master 推送时发布，PR 不发布
+    #
+    # PR 上发布会让任何人的 PR 都能改写 build 分支的内容——而 build 分支是
+    # 别人 clone 下来直接跑的东西。
+    #
+    # [EN] Published only on a push to master, never from a pull request, which would let any
+    # PR rewrite the branch that other people clone and run
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - name: ⬇️ Checkout Template
+        uses: actions/checkout@v6
+
+      - name: 🐹 Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25'
+
+      - name: 🔧 Install kopy
+        run: go install github.com/kamalyes/kopy@latest
+
+      - name: 🎨 Render With Defaults
+        run: kopy new . -o /tmp/rendered -y --hooks never
+
+      - name: 🚀 Run init.sh
+        working-directory: /tmp/rendered
+        run: bash scripts/init.sh
+
+      - name: 📦 Publish To Build Branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          git config --global user.name  "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          BUILD_DIR=/tmp/build-branch
+          git clone --depth 1 --branch build \
+            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            "$BUILD_DIR" 2>/dev/null || {
+              echo "build 分支不存在，新建一个空分支 | build branch absent, creating an orphan"
+              git clone --depth 1 \
+                "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+                "$BUILD_DIR"
+              git -C "$BUILD_DIR" checkout --orphan build
+              git -C "$BUILD_DIR" rm -rf . >/dev/null 2>&1 || true
+            }
+
+          # 排除 .github：build 分支是「clone 下来直接跑」的产物，不是跑 CI 的分支
+          #
+          # 带上 workflow 有两个实际问题：
+          #   1. 推送会被拒。GitHub 把 .github/workflows/ 下的所有文件都当 workflow
+          #      来判权限（连 markdown 也算），缺 workflows 权限的 App/token 推不上去：
+          #        refusing to allow a GitHub App to create or update workflow ...
+          #   2. 这个 verify 工作流会在 build 分支上再跑一遍，而 build 分支里是
+          #      渲染后的产物、没有 kopy.yaml，渲染步骤必然失败——于是每次发布都
+          #      顺带制造一次红叉。
+          #
+          # [EN] Excluded because the build branch is meant to be cloned and run, not to run CI.
+          # Keeping workflows breaks the push, since GitHub treats every file under
+          # .github/workflows/ as a workflow for permission purposes, even markdown, and a
+          # credential without that permission is refused; and this very workflow would run again
+          # on the build branch, where there is no kopy.yaml to render, failing every publish.
+          #
+          # 也排除 go.sum 之外的本地状态：rsync --delete 整体替换，确保上一次生成、
+          # 这次已经删掉的文件不会留在分支里（比如关掉某个模块之后）
+          # [EN] rsync --delete replaces the tree wholesale so files from a previous render that
+          # no longer exist do not linger
+          rsync -a --delete --exclude '.git' --exclude '.github' /tmp/rendered/ "$BUILD_DIR/"
+
+          cd "$BUILD_DIR"
+          git add -A
+
+          # 内容没变就不提交：每次都提交会让 build 分支堆满空提交，
+          # 而「这次发布到底改了什么」从历史里就看不出来了
+          # [EN] Skip the commit when nothing changed, or the branch fills with empty commits and
+          # the history stops showing what a publish actually changed
+          if git diff --cached --quiet; then
+            echo "✅ 生成结果与 build 分支一致，跳过发布"
+            {
+              echo "### 📦 Publish Build Branch"
+              echo
+              echo "**结果**：无变更，跳过发布"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          git diff --cached --stat | tail -30
+
+          git commit \
+            -m "📦 build: 由 ${GITHUB_SHA::7} 渲染生成" \
+            -m "本分支由 .github/workflows/verify-template.yml 自动维护，请勿手工提交——下一次发布会被整体覆盖。" \
+            -m "模板源码在 master。这里是按默认变量渲染、并经 init.sh 验证过能编译的产物，可以直接 clone 下来跑，不需要装 kopy。"
+
+          git push origin build
+
+          {
+            echo "### 📦 Publish Build Branch"
+            echo
+            echo "**来源**：\`${GITHUB_SHA::7}\`"
+            echo
+            echo "直接跑起来："
+            echo '```'
+            echo "git clone -b build https://github.com/${GITHUB_REPOSITORY}.git"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

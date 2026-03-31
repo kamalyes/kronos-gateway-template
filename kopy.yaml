@@ -190,6 +190,15 @@ questions:
 # 忽略 | Ignore
 # ============================================================================
 ignore:
+  # verify-template.yml 只服务于模板仓库自己（渲染自身并发布 build 分支），
+  # 生成出来的项目不需要它——那边没有 kopy.yaml，渲染步骤必然失败。
+  # 不排除的话每个生成仓库都会多一个永远红叉的工作流。
+  #
+  # [EN] verify-template.yml serves only the template repository, which renders itself and
+  # publishes the build branch. A generated project has no kopy.yaml, so its render step would
+  # always fail, and leaving it in gives every generated repository a permanently failing
+  # workflow.
+  - ".github/workflows/verify-template.yml"
   - "kopy.yaml"
   - "__kopy_template_doc__"
   - ".git/"
