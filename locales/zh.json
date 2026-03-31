@@ -1,0 +1,4 @@
+{
+  "error.ac_service_unavailable": "鉴权服务暂时不可用，请稍后重试",
+  "error.permission_denied": "没有访问权限"
+}

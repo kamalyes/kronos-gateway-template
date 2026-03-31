@@ -1,0 +1,42 @@
+{
+  // 模板只带一份 resources/<% .ProjectName %>-dev.yaml，所以这里也只留 dev 一个配置项。
+  // 配置按 <prefix>-<当前环境别名>.yaml 匹配，APP_ENV 未设置时 go-config 默认
+  // development（别名 dev / develop / development），正好命中这份文件，
+  // 因此直接 go run . 也能起来，不必非得从这里启动。
+  //
+  // 新增环境要同时做两件事，少一件就会在启动时报「未找到前缀为 ... 的配置文件」：
+  //   1. 复制一份 resources/<% .ProjectName %>-<env>.yaml
+  //   2. 在这里加一个配置项，env 里设 APP_ENV=<env>
+  // 可用的环境别名见 go-config 的 DefaultEnvPrefixes（test / staging / production 等）。
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Dev <% .ServiceName %>",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "cwd": "${workspaceFolder}",
+      "program": "${workspaceFolder}/main.go",
+      "args": [],
+      "windows": {
+        "env": {
+          "GOARCH": "amd64",
+          "GOOS": "windows",
+          "APP_ENV": "dev"
+        }
+      },
+      "osx": {
+        "env": {
+          "GOARCH": "arm64",
+          "GOOS": "darwin",
+          "APP_ENV": "dev"
+        }
+      },
+      "linux": {
+        "env": {
+          "APP_ENV": "dev"
+        }
+      }
+    }
+  ]
+}

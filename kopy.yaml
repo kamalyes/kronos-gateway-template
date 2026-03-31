@@ -1,0 +1,224 @@
+# ============================================================================
+# kronos-gateway-template
+#
+# 网关模板：唯一讲 HTTP 的进程，把下游 gRPC 服务的 HTTP 接口聚合起来对外提供，
+# 并在每个请求前调鉴权服务判断是否放行。
+#
+# 它**没有业务代码**。下游服务的 HTTP 路由由 AutoRegisterWithHealthCheck 通过
+# gRPC server reflection 自动发现并在网关进程里建出来，所以加一个下游服务只需
+# 在 resources 的 grpc.clients 里加一条，不改一行 Go 代码。
+#
+# 四个模板的分工：
+#   kronos-service-template         业务服务（有库有缓存，gRPC + 自己的 HTTP）
+#   kronos-key-service-template     基础设施（密钥与发号，纯 gRPC）
+#   kronos-access-control-template  鉴权（纯 gRPC，刻意没有 HTTP 路由）
+#   本模板                          HTTP 面（没有业务逻辑）
+#
+# [EN] The gateway template: the only process that speaks HTTP, aggregating the HTTP APIs of
+# downstream gRPC services and asking the authorization service before every request. It holds
+# no business code: downstream routes are discovered through gRPC server reflection and built
+# inside the gateway process, so adding a downstream service is one entry under grpc.clients
+# and no Go change at all.
+# ============================================================================
+
+name: kronos-gateway-template
+description: "网关模板（reflection 自动聚合下游 + 鉴权中间件）| Gateway template: reflection-based aggregation with an authorization middleware"
+delimiters: ["<%", "%>"]
+
+questions:
+  - name: OrgName
+    prompt: "GitHub 组织名 | GitHub organization"
+    type: string
+    default: kamalyes
+    required: true
+
+  - name: ObjectPrefix
+    prompt: "项目前缀（用于项目名与命名空间）| Project prefix"
+    type: string
+    default: kronos
+    required: true
+
+  - name: ServiceType
+    prompt: "服务类型标识 | Service type identifier"
+    type: string
+    default: gateway
+    required: true
+
+  - name: ServiceName
+    prompt: "服务名称（PascalCase）| Service name in PascalCase"
+    type: string
+    default: "<% .ServiceType | pascal %>Service"
+    required: true
+
+  - name: ModuleName
+    prompt: "模块名称（小写）| Module name, lower case"
+    type: string
+    default: "<% .ServiceType %>-service"
+    required: true
+
+  - name: ProjectName
+    prompt: "项目名称（同时是配置文件前缀）| Project name, also the config prefix"
+    type: string
+    default: "<% .ObjectPrefix %>-<% .ServiceType %>-service"
+    required: true
+
+  - name: GoVersion
+    prompt: "Go 版本 | Go version"
+    type: select
+    choices: ["1.22", "1.23", "1.24", "1.25"]
+    default: "1.25"
+
+  - name: AuthorName
+    prompt: "作者名称 | Author name"
+    type: string
+    default: kamalyes
+    required: true
+
+  - name: AuthorEmail
+    prompt: "作者邮箱 | Author email"
+    type: string
+    default: example@qq.com
+    required: true
+
+  - name: BaseBranch
+    prompt: "主干分支名 | Trunk branch"
+    type: string
+    default: master
+    required: true
+
+  - name: AiAssistant
+    prompt: "AI 规范目录 | AI convention directory"
+    type: select
+    choices: [".trae", ".claude", ".cursor", ".vscode"]
+    default: ".trae"
+
+  # --------------------------------------------------------------------------
+  # 协议中心 | Contract hub
+  # --------------------------------------------------------------------------
+  - name: ShareProtoModule
+    prompt: "协议中心 Go 模块路径 | Go module path of the contract hub"
+    type: string
+    # 默认指向协议模板的 build 分支，与 kronos-service-template 同源。
+    # master 全是占位符不是合法 Go，build 分支是它的 CI 渲染 + 生成 + 验证后的产物。
+    # 两个服务模板指向同一个分支，所以 key 模块的定义天然一致，
+    # 不需要人工保持两份 proto 同步。
+    #
+    # [EN] Points at the contract-hub template's build branch, the same source as the service
+    # template. Its master is placeholders rather than valid Go, while build is what its CI
+    # renders, generates and verifies. Both service templates consume one branch, so the key
+    # module's definition is identical by construction.
+    default: "github.com/kamalyes/kronos-share-proto-template"
+    required: true
+
+  - name: ShareProtoVersion
+    prompt: "协议中心依赖版本（分支名 / tag / latest）| Contract-hub version"
+    type: string
+    default: "build"
+    required: true
+
+  # --------------------------------------------------------------------------
+  # 运行参数 | Runtime
+  # --------------------------------------------------------------------------
+  - name: GRPCPort
+    prompt: "gRPC 端口 | gRPC port"
+    type: string
+    default: "9490"
+    required: true
+
+  - name: HTTPPort
+    prompt: "HTTP 端口 | HTTP port"
+    type: string
+    default: "8490"
+    required: true
+
+  - name: HealthPort
+    prompt: "健康检查端口 | Health check port"
+    type: string
+    default: "8491"
+    required: true
+
+  # --------------------------------------------------------------------------
+  # 网关身份与下游 | Gateway identity and downstream services
+  # --------------------------------------------------------------------------
+
+  # 一个网关只服务一个域。要同时服务运维侧和租户侧，部署两个实例各配一份
+  # resources，而不是在一个进程里按路径分流——分流规则会被改，改错的后果是
+  # 跨域越权，且现象是「某些接口突然能访问了」，不会报错。
+  #
+  # [EN] One gateway serves one domain. Serving both sides means two deployments rather than
+  # routing by path inside one process: a routing rule gets changed, and getting it wrong is a
+  # cross-domain privilege escalation whose symptom is endpoints becoming reachable with no error.
+  - name: GatewayDomain
+    prompt: "本网关服务的用户域 | The user domain this gateway serves"
+    type: select
+    choices: ["TENANT", "OPS"]
+    default: "TENANT"
+
+  # 下面三个服务名必须与对应服务自己的 constants.ServiceName 以及
+  # resources 里 grpc.clients 的 key 完全一致。连接池按服务名索引，
+  # 差一个字符的现象是网关每个请求都报「取不到鉴权服务连接」，
+  # 而那个服务明明活着。
+  #
+  # [EN] These must match each service's own ServiceName and the keys under grpc.clients
+  # exactly. The pool is indexed by service name and a mismatch makes every request report a
+  # missing connection while the service is plainly alive.
+  - name: AccessControlService
+    prompt: "鉴权服务名 | Authorization service name"
+    type: string
+    default: "<% .ObjectPrefix %>-access-control-service"
+    required: true
+
+  - name: BusinessService
+    prompt: "业务服务名 | Business service name"
+    type: string
+    default: "<% .ObjectPrefix %>-my-service"
+    required: true
+
+  - name: KeyService
+    prompt: "密钥与发号服务名 | Key and id issuer service name"
+    type: string
+    default: "<% .ObjectPrefix %>-key-service"
+    required: true
+
+  - name: PipelineRepo
+    prompt: "复用型工作流仓库 | Reusable-workflow repository"
+    type: string
+    default: kamalyes/deploy-pipeline
+    required: true
+
+# ============================================================================
+# 忽略 | Ignore
+# ============================================================================
+ignore:
+  - "kopy.yaml"
+  - "__kopy_template_doc__"
+  - ".git/"
+  - ".git/**"
+  - ".DS_Store"
+  - "go.sum"
+
+# ============================================================================
+# 重命名 | Rename
+# ============================================================================
+rename:
+  - pattern: ".yml.tpl"
+    value: ".yml"
+  - pattern: "README.md"
+    value: "__kopy_template_doc__"
+  - pattern: "readme-en.tpl"
+    value: "README.en.md"
+  - pattern: "readme.tpl"
+    value: "README.md"
+  - pattern: "__ai_home__"
+    value: "<% .AiAssistant %>"
+  - pattern: "__project_name__"
+    value: "<% .ProjectName %>"
+  - pattern: "__module_name__"
+    value: "<% .ModuleName %>"
+
+# ============================================================================
+# 生命周期钩子 | Lifecycle hooks
+# ============================================================================
+hooks:
+  after:
+    - bash scripts/init.sh

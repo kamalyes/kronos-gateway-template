@@ -1,0 +1,8 @@
+{
+  "recommendations": [
+    "golang.go",
+    "eamodio.gitlens",
+    "lokalise.i18n-ally",
+    "Gruntfuggly.todo-tree"
+  ]
+}

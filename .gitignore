@@ -1,0 +1,97 @@
+# Go 编译产物
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# 二进制文件
+bin/
+build/
+out/
+
+# Go 测试文件
+*.test
+*.out
+*.prof
+
+# Go 模块缓存
+go.work
+go.work.sum
+
+# 依赖目录
+vendor/
+
+# 开发环境和IDE
+.idea/
+*.iml
+*.swp
+*.swo
+*~
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# 日志和调试文件
+*.log
+logs/
+
+# 数据库文件
+*.db
+*.sqlite
+*.sqlite3
+
+# 配置文件
+config.local.yaml
+config.dev.yaml
+.env.local
+.env.development
+
+# 临时文件
+tmp/
+temp/
+*.tmp
+
+# 部署和构建
+dist/
+deploy/output/
+
+# Kubernetes
+*.kubeconfig
+kubeconfig
+
+# 证书和密钥
+*.pem
+*.key
+*.crt
+*.secret
+
+# Proto
+pb/
+*.pb.go.bak
+
+# 测试覆盖率
+coverage.out
+coverage.html
+
+# 性能分析
+*.prof
+*.pprof
+*.trace
+
+# 备份文件
+*.bak
+*.backup
+*.orig
+
+# debug
+go-cachex/*
+go-config/*
+go-logger/*
+go-rpc-gateway/*
+go-sqlbuilder/*
+go-toolbox/*
+go-wsc/*
+pprof_data/*

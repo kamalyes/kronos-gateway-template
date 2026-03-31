@@ -1,0 +1,62 @@
+{
+    "i18n-ally.localesPaths": ["locales"],
+    "i18n-ally.keystyle": "flat",
+    "i18n-ally.sourceLanguage": "en",
+    "i18n-ally.enabledFrameworks": ["go-rpc-gateway"],
+    "fileheader.customMade": {
+        "Author": "git config user.name && git config user.email",
+        "Date": "Do not edit",
+        "LastEditors": "git config user.name && git config user.email",
+        "LastEditTime": "Do not edit",
+        "FilePath": "Do not edit",
+        "Description": "",
+        "custom_string_obkoro1_copyright": "Copyright (c) ${now_year} by <% .AuthorName %>, All Rights Reserved. "
+    },
+    "fileheader.cursorMode": {
+        "description": "",
+        "return": "",
+    },
+    "fileheader.configObj": {
+        "autoAdd": true,
+        "autoAddLine": 100,
+        "autoAlready": true,
+        "prohibitAutoAdd": [
+          "json",
+          "mod"
+        ],
+        "folderBlacklist": [ "node_modules" ],
+        "wideSame": false,
+        "wideNum": 13,
+        "moveCursor": true,
+        "dateFormat": "YYYY-MM-DD HH:mm:ss",
+        "atSymbol": ["@", "@"],
+        "colon": [": ", ": "],
+        "filePathColon": "路径分隔符替换",
+        "throttleTime": 60000,
+    },
+    "terminal.integrated.defaultProfile.windows": "Command Prompt",
+    "terminal.integrated.profiles.windows": {
+        "PowerShell": {
+            "source": "PowerShell",
+            "icon": "terminal-powershell",
+            "args": ["-NoLogo", "-NoProfile"]
+        },
+        "PowerShell (No Integration)": {
+            "path": "C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+            "args": ["-NoLogo", "-NoProfile"],
+            "icon": "terminal-powershell"
+        }
+    },
+    "terminal.integrated.shellIntegration.enabled": false,
+    "cSpell.words": [
+      "gorm",
+      "goconfig",
+      "gwglobal",
+      "idgen",
+      "kamalyes",
+      "pbmo",
+      "sqlbuilder",
+      "sqlrepo",
+      "stringx"
+    ]
+}
