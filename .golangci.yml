@@ -1,0 +1,59 @@
+# golangci-lint 配置文件
+run:
+  timeout: 5m
+  tests: true
+  skip-dirs:
+    - vendor
+    - node_modules
+    - deployments
+    - scripts
+
+linters:
+  enable:
+    - errcheck
+    - gofmt
+    - goimports
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - misspell
+
+errcheck:
+  exclude-functions:
+    - '(*sync.RWMutex).Unlock'
+    - '(*sync.Mutex).Unlock'
+    - 'Unlock'
+    - 'Delete'
+    - 'Del'
+    - 'PublishEvent'
+    - 'HandlePath'
+    - 'RegisterGatewayHandler'
+    - 'Execute'
+
+unused:
+  field-writes-are-uses: true
+  exported-is-used: false
+  exported-fields-are-used: false
+
+govet:
+  enable:
+    - printf
+    - structtag
+  disable:
+    - shadow
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - errcheck
+        - unused
+    - path: migrations/
+      linters:
+        - errcheck
+    - text: "is unused"
+      linters:
+        - unused
+  max-issues-per-linter: 0
+  max-same-issues: 0

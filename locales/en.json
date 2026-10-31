@@ -1,0 +1,4 @@
+{
+  "error.ac_service_unavailable": "The authorization service is temporarily unavailable, please retry",
+  "error.permission_denied": "Permission denied"
+}

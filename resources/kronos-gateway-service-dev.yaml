@@ -1,0 +1,420 @@
+# =====================================================================
+# GatewayService Service - Gateway 配置（本地开发）
+# 文件名约定: kronos-gateway-service-{environment}.yaml
+# =====================================================================
+
+module-name: gateway
+name: "GatewayService Service Gateway (dev)"
+enabled: true
+debug: true
+version: "v1.0.0"
+environment: "dev"
+
+# ===========================================
+# JSON 序列化
+# ===========================================
+json:
+    use-proto-names: true
+    emit-unpopulated: true
+    discard-unknown: true
+
+# ===========================================
+# HTTP Server (gRPC-Gateway)
+# ===========================================
+http:
+    module-name: server
+    host: "0.0.0.0"
+    port: 8490
+    network: tcp4
+    read-timeout: 30
+    read-header-timeout: 5
+    write-timeout: 30
+    idle-timeout: 60
+    max-header-bytes: 1048576
+    enable-tls: false
+    tls:
+        cert-file: ""
+        key-file: ""
+        ca-file: ""
+    headers:
+        x-server: gatewayservice
+    enable-gzip-compress: true
+    gzip-compression-level: 5
+    gzip-min-size: 1024
+    enable-http2: true
+    http2:
+        max-concurrent-streams: 250
+        max-read-frame-size: 1048576
+        initial-window-size: 1048576
+        initial-conn-window-size: 2097152
+
+# ===========================================
+# gRPC Server
+# ===========================================
+grpc:
+    server:
+        enable: true
+        host: "0.0.0.0"
+        port: 9490
+        network: tcp4
+        max-recv-msg-size: 4194304
+        max-send-msg-size: 4194304
+        keepalive-time: 120
+        keepalive-timeout: 10
+        connection-timeout: 20
+        enable-reflection: true
+    # 下游 gRPC 服务：key 就是服务名，网关靠它从连接池取连接
+    #
+    # 这份配置就是「网关代理哪些服务」的唯一声明——AutoRegisterWithHealthCheck
+    # 遍历这里的每一项，连上去、通过 gRPC server reflection 读取对方的服务与
+    # google.api.http 注解，然后在**网关进程里**建出对应的 HTTP 路由。
+    #
+    # 所以加一个下游服务只需在这里加一条，不改一行 Go 代码，也不用 import
+    # 它的 pb 包。反过来说，这里漏一条的现象是「那个服务的接口全部 404」，
+    # 而网关启动日志里只少几行，很容易漏看——所以启动时会打发现结果摘要。
+    #
+    # 前提：下游必须开 enable-reflection。关掉的现象同样是 404 但服务活着。
+    #
+    # [EN] The key is the service name and this file is the only declaration of what the gateway
+    # proxies: AutoRegisterWithHealthCheck walks these entries, connects, reads each peer's
+    # services and google.api.http annotations through gRPC server reflection and builds the
+    # matching HTTP routes inside the gateway process. Adding a downstream service is therefore
+    # one entry here with no Go change and no pb import; conversely a missing entry means every
+    # endpoint of that service returns 404 while the startup log is only a few lines shorter,
+    # which is why the discovery summary is logged. The premise is that downstream services
+    # enable reflection, whose absence looks the same.
+    clients:
+        # 鉴权服务：网关对它的依赖和对其它下游不同——其它下游是「被代理的对象」，
+        # 它是「代理的前置条件」。它不可用时中间件直接返回 500 而不是放行。
+        # [EN] The authorization service is the precondition of proxying rather than an object
+        # of it, so the middleware answers 500 when it is unavailable instead of passing through
+        kronos-access-control-service:
+            service-name: kronos-access-control-service
+            endpoints: ["127.0.0.1:9390"]
+            network: tcp4
+            connection-timeout: 5
+            keepalive-time: 120
+            keepalive-timeout: 10
+            max-recv-msg-size: 4194304
+            max-send-msg-size: 4194304
+            # false：下游不可用时立刻失败，而不是把调用方挂住等它起来
+            # [EN] Fail fast rather than blocking the caller until it comes up
+            wait-for-ready: false
+
+        # 业务服务（kronos-service-template 生成）
+        kronos-my-service:
+            service-name: kronos-my-service
+            endpoints: ["127.0.0.1:9190"]
+            network: tcp4
+            connection-timeout: 5
+            keepalive-time: 120
+            keepalive-timeout: 10
+            max-recv-msg-size: 4194304
+            max-send-msg-size: 4194304
+            wait-for-ready: false
+
+        # 密钥与发号服务（kronos-key-service-template 生成）
+        #
+        # 它自己不注册 HTTP handler，路由全靠网关这边建——所以密钥接口的
+        # 唯一入口是网关，必然经过上面的鉴权中间件。这是刻意的安全属性。
+        # [EN] It registers no HTTP handler of its own, so these routes exist only here and the
+        # key endpoints are reachable only through the gateway's authorization middleware
+        kronos-key-service:
+            service-name: kronos-key-service
+            endpoints: ["127.0.0.1:9290"]
+            network: tcp4
+            connection-timeout: 5
+            keepalive-time: 120
+            keepalive-timeout: 10
+            max-recv-msg-size: 4194304
+            max-send-msg-size: 4194304
+            wait-for-ready: false
+# ===========================================
+# 本服务没有 cache 段
+#
+# 桩实现不需要任何存储。真实实现会需要：token 吊销名单（jti 黑名单）、
+# 用户与角色的查询缓存、策略表缓存——Authorities 是整条链路上最热的 RPC
+# （网关每个请求都调它），这些都必须走缓存而不是每次查库。
+# 接真实实现时把 cache 段加回来，参考 kronos-service-template 的配置。
+#
+# [EN] The stub needs no storage. A real implementation will need a jti revocation list and
+# caches for users, roles and policies: Authorities is the hottest RPC on the path, called
+# before every gateway request, so none of it may hit a database per call. Add the cache
+# section back when replacing the stub.
+# ===========================================
+# ===========================================
+# 本服务没有 database 段
+#
+# 临时密钥只存 Redis 并随 TTL 过期，ID 序列只需要一个原子自增，两者都不落库。
+# 落库要配迁移、备份和清理任务，而数据库备份里躺着一堆 RSA 私钥本身就是风险——
+# 备份的保留期通常远长于这些密钥该存在的时间。
+#
+# [EN] No database section. Temporary keys live in Redis under a TTL and the id sequence only
+# needs an atomic increment, so neither is persisted. A table would need migrations, backups
+# and a cleanup job, and a backup full of RSA private keys is itself a risk, since backups are
+# retained far longer than these keys should exist.
+# ===========================================
+
+health:
+    module-name: health
+    enabled: true
+    path: /health
+    port: 8491
+    timeout: 30
+    redis:
+        enabled: false
+        path: /health/redis
+        timeout: 5
+    mysql:
+        enabled: false
+        path: /health/mysql
+        timeout: 5
+
+# ===========================================
+# 监控
+# ===========================================
+monitoring:
+    module-name: monitoring
+    enabled: true
+    metrics:
+        enabled: true
+        request-count: true
+        duration: true
+        response-size: true
+        request-size: true
+        buckets: [0.001, 0.01, 0.1, 0.3, 0.6, 1, 3, 6, 9, 20, 30, 60, 90, 120]
+        enable-open-metrics: false
+        custom-metrics: []
+    alerting:
+        enabled: false
+        rules: []
+        webhooks: []
+
+# ===========================================
+# 安全
+# ===========================================
+security:
+    module-name: security
+    enabled: false
+    csp:
+        enabled: true
+        mode: development
+        custom: ""
+
+# ===========================================
+# 请求上下文
+# ===========================================
+request-context:
+    authorization-sources:
+        - { type: header, key: Authorization }
+        - { type: query, key: authorization }
+    request-id-sources:
+        - { type: header, key: X-Request-Id }
+    trace-id-sources:
+        - { type: header, key: X-Trace-Id }
+    real-ip-sources:
+        - { type: header, key: X-Real-IP }
+    forwarded-for-sources:
+        - { type: header, key: X-Forwarded-For }
+    forwarded-proto-sources:
+        - { type: header, key: X-Forwarded-Proto }
+    client-id-sources:
+        - { type: header, key: X-Client-ID }
+    user-id-sources:
+        - { type: header, key: X-User-ID }
+    tenant-id-sources:
+        - { type: header, key: X-Tenant-ID }
+    timezone-sources:
+        - { type: header, key: X-Timezone }
+
+# ===========================================
+# 中间件
+# ===========================================
+middleware:
+    module-name: middleware
+    enabled: true
+    logging:
+        module-name: logging
+        enabled: true
+        level: debug
+        format: json
+        output: console
+        file-path: ""
+        max-size: 100
+        max-backups: 3
+        max-age: 28
+        compress: true
+        skip-paths:
+            - /health
+            - /metrics
+            - /favicon.ico
+            - /ping
+            - /readiness
+            - /liveness
+        enable-request: true
+        enable-response: true
+        max-body-size: 4096
+        sensitive-mask: "***REDACTED***"
+        sensitive-keys:
+            - password
+            - passwd
+            - token
+            - access_token
+            - refresh_token
+            - secret
+            - authorization
+            - api_key
+            - apikey
+        loggable-content-types:
+            - application/json
+            - application/xml
+            - application/x-www-form-urlencoded
+            - text/
+    recovery:
+        module-name: recovery
+        enabled: true
+        enable-stack: true
+        stack-size: 4096
+        enable-debug: true
+        error-message: 服务器内部错误
+        log-level: error
+        enable-notify: false
+        print-stack: true
+    metrics:
+        module-name: metrics
+        enabled: true
+        path: /metrics
+        namespace: gateway
+        subsystem: gateway
+        skip-paths: [/health, /metrics, /swagger, /debug/pprof]
+        buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0, 30.0]
+        request-count: true
+        duration: true
+        request-size: true
+        response-size: true
+    request-id:
+        module-name: requestid
+        enabled: true
+        header-name: X-Request-ID
+        generator: uuid
+    i18n:
+        module-name: i18n
+        enabled: true
+        default-language: en
+        supported-languages: [en, zh]
+        language-mapping:
+            en-us: en
+            zh-cn: zh
+            zh-tw: zh
+        resolution-order: [standard]
+        detection-order: [header]
+        language-param: lang
+        language-header: Accept-Language
+        messages-path: ./locales
+        custom-message-paths: {}
+        enable-fallback: true
+        cookie-name: language
+    pprof:
+        module-name: PProf
+        enabled: false
+        path-prefix: /debug/pprof
+        port: 6160
+        enable-profiles:
+            cpu: true
+            memory: true
+            goroutine: true
+            heap: true
+            allocs: true
+        sampling:
+            cpu-rate: 100
+            memory-rate: 524288
+            block-rate: 1
+            mutex-fraction: 1
+        authentication:
+            enabled: false
+        gateway:
+            enabled: false
+        web-interface:
+            enabled: true
+            title: PProf
+            description: Go Performance Profiling
+            show-scenarios: true
+    circuit-breaker:
+        module-name: circuit_breaker
+        enabled: false
+        failure-threshold: 5
+        success-threshold: 2
+        timeout: 30000000000
+        volume-threshold: 10
+        sliding-window-size: 100
+        sliding-window-bucket: 1000000000
+        prevention-paths: [/api/]
+        exclude-paths: [/health, /metrics, /debug]
+    signature:
+        module-name: signature
+        enabled: false
+        type: hmac
+        secret-key: "change-me-in-production"
+        nonce-key-prefix: 'nonce:'
+        nonce-ttl: 10m
+        require-timestamp: false
+        require-nonce: false
+        algorithm: SHA256
+        timeout-window: 5m
+        ignore-paths: [/health, /metrics, /ping, /swagger, /debug/pprof]
+        skip-query: false
+        skip-body: false
+    alerting:
+        module-name: alerting
+        enabled: false
+        webhooks: []
+        channels: []
+
+# ===========================================
+# CORS
+# ===========================================
+cors:
+    module-name: cors
+    allowed-origins: ['*']
+    allowed-methods: [GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD]
+    allowed-headers:
+        - '*'
+        - Authorization
+        - Content-Type
+        - X-Request-ID
+        - X-Trace-ID
+        - X-User-ID
+        - X-Tenant-ID
+        - Origin
+        - Accept
+        - Accept-Language
+    max-age: "86400"
+    allowed-all-origins: true
+    allowed-all-methods: true
+    exposed-headers: [X-Request-ID, X-Trace-ID, Content-Length, Content-Type]
+    allow-credentials: false
+    options-response-code: 204
+
+# ===========================================
+# 限流
+# ===========================================
+rate-limit:
+    module-name: ratelimit
+    enabled: true
+    strategy: token-bucket
+    default-scope: global
+    global-limit:
+        requests-per-second: 1000
+        burst-size: 2000
+        window-size: 1m0s
+        block-duration: 1m0s
+    routes: []
+    ip-rules: []
+    user-rules: []
+    storage:
+        type: memory
+        key-prefix: 'rate_limit:'
+        clean-interval: 1m
+        redis: null
+    custom-rule-loader: ""
+    enable-dynamic-rule: false
