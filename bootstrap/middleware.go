@@ -21,7 +21,7 @@ import (
 	commonpb "<% .ShareProtoModule %>/pb/common"
 	enumspb "<% .ShareProtoModule %>/pb/enums"
 	gruntime "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-	goi18n "github.com/kamalyes/go-i18n"
+	goi18n "github.com/kamalyes/go-toolbox/pkg/i18n"
 	grpcpool "github.com/kamalyes/go-rpc-gateway/cpool/grpc"
 	gwglobal "github.com/kamalyes/go-rpc-gateway/global"
 	gwmiddleware "github.com/kamalyes/go-rpc-gateway/middleware"

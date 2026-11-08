@@ -45,8 +45,8 @@ project/
 |---------|---------|
 | `github.com/kamalyes/go-rpc-gateway` | Gateway framework (gRPC + HTTP) |
 | `github.com/kamalyes/go-sqlbuilder` | ORM base repository, migrator |
-| `github.com/kamalyes/go-pbmo` | Proto ↔ Model bidirectional conversion |
-| `github.com/kamalyes/go-config` | Environment config |
+| `github.com/kamalyes/go-toolbox/pkg/pbmo` | Proto ↔ Model bidirectional conversion |
+| `github.com/kamalyes/go-rpc-gateway/config` | Environment config |
 | `github.com/kamalyes/go-toolbox` | ID generation, utilities |
 | `{org}/{prefix}-share-proto/pb/*` | Generated proto Go code |
 
@@ -62,7 +62,7 @@ package models
 import (
     "time"
     commonpb "{share-proto-module}/pb/common"
-    "github.com/kamalyes/go-pbmo"
+    "github.com/kamalyes/go-toolbox/pkg/pbmo"
 )
 
 // XxxModel - field names must match proto for PBMO auto-conversion

@@ -126,5 +126,5 @@ echo "  go run .                               # 启动服务（APP_ENV 未设�
 echo "  git add -A && git commit -m \"chore: bootstrap <% .ModuleName %>\""
 echo ""
 echo "接入 proto 定义的 service：在 bootstrap/services.go 的两个 TODO 处注册 gRPC 与 HTTP handler。"
-echo "参数校验不需要自己写：go-rpc-gateway 已把基于 go-argus 的 struct tag 校验拦截器挂在链上，"
+echo "参数校验不需要自己写：go-rpc-gateway 已把基于 go-toolbox/pkg/argus 的 struct tag 校验拦截器挂在链上，"
 echo "proto 里 @inject_tag: validate:\"...\" 注入的规则自动生效。"

@@ -3,12 +3,9 @@ module github.com/<% .OrgName %>/<% .ProjectName %>
 go <% .GoVersion %>
 
 require (
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0
-	github.com/kamalyes/go-config v0.23.0
-	github.com/kamalyes/go-i18n v0.2.8
-	github.com/kamalyes/go-logger v0.7.1
-	github.com/kamalyes/go-rpc-gateway v1.9.6
-	github.com/kamalyes/go-toolbox v0.17.0
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0
+	github.com/kamalyes/go-rpc-gateway v1.10.2-0.20261108113725-d288a36ccd0b
+	github.com/kamalyes/go-toolbox v0.19.4
 )
 
 // 网关的依赖刻意只有这些：没有 gorm、没有 cachex、没有 sqlbuilder
