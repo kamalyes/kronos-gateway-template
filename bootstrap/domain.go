@@ -1,8 +1,8 @@
 /*
  * @Author: kamalyes example@qq.com
- * @Date: 2026-10-31 00:00:00
+ * @Date: 2026-11-08 00:00:00
  * @LastEditors: kamalyes example@qq.com
- * @LastEditTime: 2026-10-31 00:00:00
+ * @LastEditTime: 2026-11-08 00:00:00
  * @FilePath: \kronos-gateway-service\bootstrap\domain.go
  * @Description: 本网关服务的用户域
  *

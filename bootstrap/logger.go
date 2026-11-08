@@ -1,8 +1,8 @@
 /*
  * @Author: kamalyes example@qq.com
- * @Date: 2026-10-31 00:00:00
+ * @Date: 2026-11-08 00:00:00
  * @LastEditors: kamalyes example@qq.com
- * @LastEditTime: 2026-10-31 00:00:00
+ * @LastEditTime: 2026-11-08 00:00:00
  * @FilePath: \kronos-gateway-service\bootstrap\logger.go
  * @Description: 日志上下文字段配置
  *
@@ -11,7 +11,7 @@
 package bootstrap
 
 import (
-	logger "github.com/kamalyes/go-logger"
+	logger "github.com/kamalyes/go-toolbox/pkg/logger"
 	gwconstants "github.com/kamalyes/go-rpc-gateway/constants"
 	gwglobal "github.com/kamalyes/go-rpc-gateway/global"
 )

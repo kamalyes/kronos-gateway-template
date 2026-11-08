@@ -1,8 +1,8 @@
 /*
  * @Author: kamalyes example@qq.com
- * @Date: 2026-10-31 00:00:00
+ * @Date: 2026-11-08 00:00:00
  * @LastEditors: kamalyes example@qq.com
- * @LastEditTime: 2026-10-31 00:00:00
+ * @LastEditTime: 2026-11-08 00:00:00
  * @FilePath: \kronos-gateway-service\bootstrap\server.go
  * @Description: 网关启动引导
  *
@@ -14,7 +14,7 @@ import (
 	"fmt"
 
 	"github.com/kamalyes/kronos-gateway-service/constants"
-	goconfig "github.com/kamalyes/go-config"
+	goconfig "github.com/kamalyes/go-rpc-gateway/config"
 	gateway "github.com/kamalyes/go-rpc-gateway"
 	grpcpool "github.com/kamalyes/go-rpc-gateway/cpool/grpc"
 	gwglobal "github.com/kamalyes/go-rpc-gateway/global"

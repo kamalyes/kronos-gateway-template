@@ -1,8 +1,8 @@
 /*
  * @Author: kamalyes example@qq.com
- * @Date: 2026-10-31 00:00:00
+ * @Date: 2026-11-08 00:00:00
  * @LastEditors: kamalyes example@qq.com
- * @LastEditTime: 2026-10-31 00:00:00
+ * @LastEditTime: 2026-11-08 00:00:00
  * @FilePath: \kronos-gateway-service\bootstrap\middleware.go
  * @Description: 鉴权中间件 —— 网关唯一的业务逻辑
  *
@@ -21,7 +21,7 @@ import (
 	commonpb "github.com/kamalyes/kronos-share-proto-template/pb/common"
 	enumspb "github.com/kamalyes/kronos-share-proto-template/pb/enums"
 	gruntime "github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-	goi18n "github.com/kamalyes/go-i18n"
+	goi18n "github.com/kamalyes/go-toolbox/pkg/i18n"
 	grpcpool "github.com/kamalyes/go-rpc-gateway/cpool/grpc"
 	gwglobal "github.com/kamalyes/go-rpc-gateway/global"
 	gwmiddleware "github.com/kamalyes/go-rpc-gateway/middleware"
