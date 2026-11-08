@@ -88,8 +88,6 @@ coverage.html
 
 # debug
 go-cachex/*
-go-config/*
-go-logger/*
 go-rpc-gateway/*
 go-sqlbuilder/*
 go-toolbox/*

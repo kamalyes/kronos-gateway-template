@@ -86,8 +86,8 @@ github.com/jinzhu/now v1.1.5/go.mod h1:d3SSVoowX0Lcu0IBviAWJpolVfI5UJVZZ7cO71lE/
 github.com/jordan-wright/email v4.0.1-0.20210109023952-943e75fe5223+incompatible h1:jdpOPRN1zP63Td1hDQbZW73xKmzDvZHzVdNYxhnTMDA=
 github.com/jordan-wright/email v4.0.1-0.20210109023952-943e75fe5223+incompatible/go.mod h1:1c7szIrayyPPB/987hsnvNzLushdWf4o/79s3P08L8A=
 github.com/jtolds/gls v4.20.0+incompatible/go.mod h1:QJZ7F/aHp+rZTRtaJ1ow/lLfFfVYBRgL+9YlvaHOwJU=
-github.com/kamalyes/go-rpc-gateway v1.10.2-0.20261108111703-b334243a8027 h1:76G2ZiY6orX/PlZsr2vlbo7cvm5YHbS979MxvfzKoGQ=
-github.com/kamalyes/go-rpc-gateway v1.10.2-0.20261108111703-b334243a8027/go.mod h1:avK1guOaR1O7GvvN1qo5yiSR9GOVBsjm9KUcvRtP4L4=
+github.com/kamalyes/go-rpc-gateway v1.10.2-0.20261108113725-d288a36ccd0b h1:bYHjc16FuFJz/EQZooZIYKCPv3D6UOqC3iklq/vGwEA=
+github.com/kamalyes/go-rpc-gateway v1.10.2-0.20261108113725-d288a36ccd0b/go.mod h1:1xrcr9mFWDgPQOEj+XA4Wm2GB9sTzEfU7AOPu+TwXkY=
 github.com/kamalyes/go-toolbox v0.19.4 h1:Tg4yOn1zfarjhFzxov7PsSmn/xY6zSEXHyUrHwOfd64=
 github.com/kamalyes/go-toolbox v0.19.4/go.mod h1:aWbifGn+KHbQXHuAHCfv3vsYZXXya+Z7fnf/daMD7w4=
 github.com/kamalyes/go-toolbox/pkg/argus/protoenum v0.19.4 h1:PaQNhKZ6PaHs+VMVqdj20Hvoc/1wPghKID9dCB1I3RA=

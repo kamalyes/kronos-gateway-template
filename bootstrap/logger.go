@@ -21,7 +21,7 @@ import (
 // 配一次，之后所有 *ContextKV / *Context 日志都自动带上这些字段，业务代码里
 // 一个字都不用写——不要在调用处手工拼 request_id / tenant_id。
 //
-// go-logger 的取值顺序（见 extractKeyValue）：
+// go-toolbox/pkg/logger 的取值顺序（见 extractKeyValue）：
 //  1. trace_id 固定从 OTel span 取，是单一真相源，不受这里的配置影响；
 //     网关的 gRPC server 挂了 otelgrpc 的 StatsHandler，所以每个 RPC 的 ctx 都在 span 内。
 //  2. 其余 key 先查 ctx.Value(key)——网关的 request_context 中间件正是用
@@ -35,7 +35,7 @@ import (
 // 对密钥服务额外重要：这些字段是事后审计「谁在什么时候签发/解密了哪个密钥」
 // 的唯一线索，而密钥本身不会进日志。
 //
-// [EN] Declare once which fields every context log carries. go-logger resolves trace_id from
+// [EN] Declare once which fields every context log carries. go-toolbox/pkg/logger resolves trace_id from
 // the OTel span as the single source of truth, and for the remaining keys reads ctx.Value(key)
 // first and then falls back to the gRPC incoming metadata header of the same name; the
 // gateway's request_context middleware stores its values under exactly these constants, which

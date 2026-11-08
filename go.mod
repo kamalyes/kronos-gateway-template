@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.30.0
-	github.com/kamalyes/go-rpc-gateway v1.10.2-0.20261108111703-b334243a8027
+	github.com/kamalyes/go-rpc-gateway v1.10.2-0.20261108113725-d288a36ccd0b
 	github.com/kamalyes/go-toolbox v0.19.4
 )
 
